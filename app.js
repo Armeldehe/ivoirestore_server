@@ -33,14 +33,21 @@ const avisRoutes = require("./routes/avisRoutes");
 
 const app = express();
 
-// CONFIGURATION CORS MANUELLE (Solution radicale pour Express 5 / Dév local)
+// CONFIGURATION CORS — Origines autorisées
+const ALLOWED_ORIGINS = [
+  "https://ivoirestore-client.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+];
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // Autoriser toutes les origines localhost pour le développement
-  if (origin && origin.startsWith("http://localhost")) {
+  if (
+    origin &&
+    (ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost"))
+  ) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
   }
 
   res.setHeader(
