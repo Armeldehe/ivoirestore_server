@@ -35,6 +35,8 @@ const app = express();
 
 // CONFIGURATION CORS — Origines autorisées
 const ALLOWED_ORIGINS = [
+  "https://ivoirestore.com",
+  "https://www.ivoirestore.com",
   "https://ivoirestore-client.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
