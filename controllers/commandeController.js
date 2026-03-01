@@ -41,9 +41,15 @@ exports.statusValidation = [
   body("status")
     .notEmpty()
     .withMessage("Le statut est obligatoire")
-    .isIn(["pending", "transmitted", "delivered", "commission_paid"])
+    .isIn([
+      "pending",
+      "transmitted",
+      "delivered",
+      "commission_paid",
+      "cancelled",
+    ])
     .withMessage(
-      "Statut invalide. Valeurs: pending, transmitted, delivered, commission_paid",
+      "Statut invalide. Valeurs: pending, transmitted, delivered, commission_paid, cancelled",
     ),
 ];
 
@@ -118,7 +124,7 @@ exports.createCommande = async (req, res, next) => {
 
     // Populer pour la réponse
     const commandePopulee = await Commande.findById(commande._id)
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone");
 
     logger.info(
@@ -152,7 +158,7 @@ exports.getCommandes = async (req, res, next) => {
 
     const total = await Commande.countDocuments(filter);
     const commandes = await Commande.find(filter)
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -185,7 +191,7 @@ exports.updateCommandeStatus = async (req, res, next) => {
       { status },
       { new: true, runValidators: true },
     )
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone");
 
     if (!commande) {
@@ -234,7 +240,7 @@ exports.transmitCommande = async (req, res, next) => {
     await commande.save();
 
     const commandePopulee = await Commande.findById(commande._id)
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone");
 
     logger.info(`Commande ${commande._id} transmise à la boutique`);
@@ -279,7 +285,7 @@ exports.markDelivered = async (req, res, next) => {
     await commande.save();
 
     const commandePopulee = await Commande.findById(commande._id)
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone");
 
     logger.info(
@@ -289,6 +295,61 @@ exports.markDelivered = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Commande marquée comme livrée.",
+      data: commandePopulee,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Annuler une commande (Vendeur only)
+ * @route   PUT /api/vendeur/orders/:id/cancel
+ * @access  Privé (Vendeur)
+ */
+exports.cancelVendeurCommande = async (req, res, next) => {
+  try {
+    const commande = await Commande.findOne({
+      _id: req.params.id,
+      boutique: req.boutiqueId,
+    });
+
+    if (!commande) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande introuvable ou vous n'avez pas les droits.",
+      });
+    }
+
+    if (
+      commande.status === "delivered" ||
+      commande.status === "commission_paid"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Impossible d'annuler une commande déjà livrée ou payée.`,
+      });
+    }
+
+    // Restituer le stock
+    await Produit.findByIdAndUpdate(commande.product, {
+      $inc: { stock: commande.quantity || 1 },
+    });
+
+    commande.status = "cancelled";
+    await commande.save();
+
+    const commandePopulee = await Commande.findById(commande._id)
+      .populate("product", "name price images")
+      .populate("boutique", "name phone");
+
+    logger.info(
+      `Commande ${commande._id} annulée par le vendeur (boutique: ${req.boutiqueId})`,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Commande annulée.",
       data: commandePopulee,
     });
   } catch (error) {
@@ -323,7 +384,7 @@ exports.markCommissionPaid = async (req, res, next) => {
     await commande.save();
 
     const commandePopulee = await Commande.findById(commande._id)
-      .populate("product", "name price")
+      .populate("product", "name price images")
       .populate("boutique", "name phone");
 
     logger.info(`Commission payée pour commande ${commande._id}`);

@@ -8,6 +8,7 @@ const router = express.Router();
 const {
   getVendeurCommandes,
   markDelivered,
+  cancelVendeurCommande,
   getVendeurCommissionStats,
 } = require("../controllers/commandeController");
 const { protectVendeur } = require("../middlewares/vendeurMiddleware");
@@ -20,6 +21,9 @@ router.get("/", getVendeurCommandes);
 
 // PUT /api/vendeur/orders/:id/delivered - Marquer comme livré
 router.put("/:id/delivered", markDelivered);
+
+// PUT /api/vendeur/orders/:id/cancel - Annuler la commande
+router.put("/:id/cancel", cancelVendeurCommande);
 
 // GET /api/vendeur/commissions - Stats commissions de sa boutique
 router.get("/commissions", getVendeurCommissionStats);

@@ -37,9 +37,15 @@ const commandeSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["pending", "transmitted", "delivered", "commission_paid"],
+        values: [
+          "pending",
+          "transmitted",
+          "delivered",
+          "commission_paid",
+          "cancelled",
+        ],
         message:
-          "Statut invalide. Valeurs acceptées: pending, transmitted, delivered, commission_paid",
+          "Statut invalide. Valeurs acceptées: pending, transmitted, delivered, commission_paid, cancelled",
       },
       default: "pending",
     },
