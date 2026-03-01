@@ -206,3 +206,326 @@ exports.updateCommandeStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Transmettre une commande à la boutique (Admin only)
+ * @route   PUT /api/orders/:id/transmit
+ * @access  Privé (Admin)
+ */
+exports.transmitCommande = async (req, res, next) => {
+  try {
+    const commande = await Commande.findById(req.params.id);
+
+    if (!commande) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande introuvable.",
+      });
+    }
+
+    if (commande.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: `Impossible de transmettre une commande avec le statut "${commande.status}". Seules les commandes "pending" peuvent être transmises.`,
+      });
+    }
+
+    commande.status = "transmitted";
+    await commande.save();
+
+    const commandePopulee = await Commande.findById(commande._id)
+      .populate("product", "name price")
+      .populate("boutique", "name phone");
+
+    logger.info(`Commande ${commande._id} transmise à la boutique`);
+
+    res.status(200).json({
+      success: true,
+      message: "Commande transmise avec succès à la boutique.",
+      data: commandePopulee,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Marquer une commande comme livrée (Vendeur only)
+ * @route   PUT /api/vendeur/orders/:id/delivered
+ * @access  Privé (Vendeur)
+ */
+exports.markDelivered = async (req, res, next) => {
+  try {
+    const commande = await Commande.findOne({
+      _id: req.params.id,
+      boutique: req.boutiqueId,
+    });
+
+    if (!commande) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande introuvable ou vous n'avez pas les droits.",
+      });
+    }
+
+    if (commande.status !== "transmitted") {
+      return res.status(400).json({
+        success: false,
+        message: `Impossible de marquer comme livrée. La commande doit être "transmitted", statut actuel: "${commande.status}".`,
+      });
+    }
+
+    commande.status = "delivered";
+    await commande.save();
+
+    const commandePopulee = await Commande.findById(commande._id)
+      .populate("product", "name price")
+      .populate("boutique", "name phone");
+
+    logger.info(
+      `Commande ${commande._id} marquée livrée par vendeur (boutique: ${req.boutiqueId})`,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Commande marquée comme livrée.",
+      data: commandePopulee,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Marquer la commission comme payée (Admin only)
+ * @route   PUT /api/orders/:id/commission-paid
+ * @access  Privé (Admin)
+ */
+exports.markCommissionPaid = async (req, res, next) => {
+  try {
+    const commande = await Commande.findById(req.params.id);
+
+    if (!commande) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande introuvable.",
+      });
+    }
+
+    if (commande.status !== "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: `Impossible de marquer commission payée. La commande doit être "delivered", statut actuel: "${commande.status}".`,
+      });
+    }
+
+    commande.status = "commission_paid";
+    await commande.save();
+
+    const commandePopulee = await Commande.findById(commande._id)
+      .populate("product", "name price")
+      .populate("boutique", "name phone");
+
+    logger.info(`Commission payée pour commande ${commande._id}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Commission marquée comme payée.",
+      data: commandePopulee,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Récupérer les commandes de la boutique du vendeur
+ * @route   GET /api/vendeur/orders
+ * @access  Privé (Vendeur)
+ */
+exports.getVendeurCommandes = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      boutique: req.boutiqueId,
+      status: { $in: ["transmitted", "delivered", "commission_paid"] },
+    };
+
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    const total = await Commande.countDocuments(filter);
+    const commandes = await Commande.find(filter)
+      .populate("product", "name price images")
+      .populate("boutique", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: commandes.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: commandes,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Statistiques de commissions (Admin - toutes les boutiques)
+ * @route   GET /api/orders/commissions
+ * @access  Privé (Admin)
+ */
+exports.getCommissionStats = async (req, res, next) => {
+  try {
+    // Commissions par boutique
+    const stats = await Commande.aggregate([
+      {
+        $match: {
+          status: { $in: ["delivered", "commission_paid"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$boutique",
+          totalCommission: { $sum: "$commissionAmount" },
+          commissionDue: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "delivered"] },
+                "$commissionAmount",
+                0,
+              ],
+            },
+          },
+          commissionPaid: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "commission_paid"] },
+                "$commissionAmount",
+                0,
+              ],
+            },
+          },
+          totalOrders: { $sum: 1 },
+          deliveredOrders: {
+            $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] },
+          },
+          paidOrders: {
+            $sum: { $cond: [{ $eq: ["$status", "commission_paid"] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "boutiques",
+          localField: "_id",
+          foreignField: "_id",
+          as: "boutique",
+        },
+      },
+      { $unwind: "$boutique" },
+      {
+        $project: {
+          boutique: { _id: 1, name: 1, commissionRate: 1 },
+          totalCommission: 1,
+          commissionDue: 1,
+          commissionPaid: 1,
+          totalOrders: 1,
+          deliveredOrders: 1,
+          paidOrders: 1,
+        },
+      },
+      { $sort: { commissionDue: -1 } },
+    ]);
+
+    // Totaux globaux
+    const totals = stats.reduce(
+      (acc, s) => {
+        acc.totalDue += s.commissionDue;
+        acc.totalPaid += s.commissionPaid;
+        acc.totalCommission += s.totalCommission;
+        return acc;
+      },
+      { totalDue: 0, totalPaid: 0, totalCommission: 0 },
+    );
+
+    res.status(200).json({
+      success: true,
+      totals,
+      data: stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Statistiques de commissions de la boutique du vendeur
+ * @route   GET /api/vendeur/commissions
+ * @access  Privé (Vendeur)
+ */
+exports.getVendeurCommissionStats = async (req, res, next) => {
+  try {
+    const mongoose = require("mongoose");
+    const boutiqueObjectId = new mongoose.Types.ObjectId(req.boutiqueId);
+
+    const stats = await Commande.aggregate([
+      {
+        $match: {
+          boutique: boutiqueObjectId,
+          status: { $in: ["delivered", "commission_paid"] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalCommission: { $sum: "$commissionAmount" },
+          commissionDue: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "delivered"] },
+                "$commissionAmount",
+                0,
+              ],
+            },
+          },
+          commissionPaid: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "commission_paid"] },
+                "$commissionAmount",
+                0,
+              ],
+            },
+          },
+          totalRevenue: { $sum: "$totalPrice" },
+          totalOrders: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const result = stats[0] || {
+      totalCommission: 0,
+      commissionDue: 0,
+      commissionPaid: 0,
+      totalRevenue: 0,
+      totalOrders: 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

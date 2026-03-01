@@ -6,13 +6,45 @@ const express = require("express");
 const router = express.Router();
 
 const { protect } = require("../middlewares/authMiddleware");
+const { protectVendeur } = require("../middlewares/vendeurMiddleware");
+const jwt = require("jsonwebtoken");
 const {
   uploadProductImage,
   uploadBoutiqueImage,
 } = require("../middlewares/upload");
 
-// Toutes les routes nécessitent l'authentification admin
-router.use(protect);
+const protectAdminOrVendeur = (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Accès refusé. Token manquant.",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type === "vendeur") {
+      return protectVendeur(req, res, next);
+    } else {
+      return protect(req, res, next);
+    }
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Token invalide ou expiré.",
+    });
+  }
+};
+
+router.use(protectAdminOrVendeur);
 
 /**
  * @desc    Upload image produit

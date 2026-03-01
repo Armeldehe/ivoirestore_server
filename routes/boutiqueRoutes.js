@@ -11,6 +11,7 @@ const {
   getBoutique,
   updateBoutique,
   deleteBoutique,
+  updateCommissionRate,
   boutiqueValidation,
 } = require("../controllers/boutiqueController");
 const { protect, optionalProtect } = require("../middlewares/authMiddleware");
@@ -27,6 +28,9 @@ router.use(protect);
 
 // POST /api/boutiques - Créer une boutique
 router.post("/", boutiqueValidation, validate, createBoutique);
+
+// PUT /api/boutiques/:id/commission - Modifier le taux de commission
+router.put("/:id/commission", updateCommissionRate);
 
 // PUT /api/boutiques/:id - Mettre à jour une boutique
 router.put("/:id", boutiqueValidation, validate, updateBoutique);

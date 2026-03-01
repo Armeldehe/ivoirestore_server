@@ -183,3 +183,53 @@ exports.deleteBoutique = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Mettre à jour le taux de commission d'une boutique
+ * @route   PUT /api/boutiques/:id/commission
+ * @access  Privé (Admin)
+ */
+exports.updateCommissionRate = async (req, res, next) => {
+  try {
+    const { commissionRate } = req.body;
+
+    if (commissionRate === undefined || commissionRate === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Le taux de commission est obligatoire.",
+      });
+    }
+
+    if (commissionRate < 0 || commissionRate > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Le taux de commission doit être entre 0 et 100.",
+      });
+    }
+
+    const boutique = await Boutique.findByIdAndUpdate(
+      req.params.id,
+      { commissionRate },
+      { new: true, runValidators: true },
+    );
+
+    if (!boutique) {
+      return res.status(404).json({
+        success: false,
+        message: "Boutique introuvable.",
+      });
+    }
+
+    logger.info(
+      `Taux de commission mis à jour pour ${boutique.name} : ${commissionRate}%`,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Taux de commission mis à jour : ${commissionRate}%`,
+      data: boutique,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

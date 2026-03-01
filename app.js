@@ -30,6 +30,9 @@ const commandeRoutes = require("./routes/commandeRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const avisRoutes = require("./routes/avisRoutes");
+const vendeurAuthRoutes = require("./routes/vendeurAuthRoutes");
+const vendeurProduitRoutes = require("./routes/vendeurProduitRoutes");
+const vendeurCommandeRoutes = require("./routes/vendeurCommandeRoutes");
 
 const app = express();
 
@@ -183,6 +186,9 @@ app.use("/api/orders", commandeRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/avis", avisRoutes);
+app.use("/api/vendeur", vendeurAuthRoutes);
+app.use("/api/vendeur/products", vendeurProduitRoutes);
+app.use("/api/vendeur/orders", vendeurCommandeRoutes);
 
 // ─── Route 404 ───────────────────────────────────────────────────────────────
 
