@@ -48,4 +48,20 @@ const boutiqueStorage = new CloudinaryStorage({
   },
 });
 
-module.exports = { cloudinary, productStorage, boutiqueStorage };
+// Storage pour les vidéos produit
+const productVideoStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "ivoirestore/product-videos",
+    resource_type: "video",
+    allowed_formats: ["mp4", "webm", "mov"],
+    transformation: [{ duration: "60", quality: "auto" }],
+  },
+});
+
+module.exports = {
+  cloudinary,
+  productStorage,
+  boutiqueStorage,
+  productVideoStorage,
+};

@@ -102,11 +102,37 @@ exports.getProduits = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const total = await Produit.countDocuments(baseQuery);
-    const produits = await Produit.find(baseQuery)
-      .populate("boutique", "name phone address isVerified")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+
+    // Déterminer le tri (aléatoire par défaut)
+    let isRandom = false;
+    let sortObj = {};
+    if (req.query.sort === "price") sortObj.price = 1;
+    else if (req.query.sort === "-price") sortObj.price = -1;
+    else if (req.query.sort === "recent") sortObj.createdAt = -1;
+    else isRandom = true; // par défaut
+
+    let produits;
+    if (isRandom) {
+      const mongoose = require("mongoose");
+      const matchQuery = { ...baseQuery };
+      if (matchQuery.boutique) {
+        matchQuery.boutique = new mongoose.Types.ObjectId(matchQuery.boutique);
+      }
+      produits = await Produit.aggregate([
+        { $match: matchQuery },
+        { $sample: { size: limit } },
+      ]);
+      produits = await Produit.populate(produits, {
+        path: "boutique",
+        select: "name phone address isVerified",
+      });
+    } else {
+      produits = await Produit.find(baseQuery)
+        .populate("boutique", "name phone address isVerified")
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit);
+    }
 
     res.status(200).json({
       success: true,

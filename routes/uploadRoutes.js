@@ -11,6 +11,7 @@ const jwt = require("jsonwebtoken");
 const {
   uploadProductImage,
   uploadBoutiqueImage,
+  uploadProductVideo,
 } = require("../middlewares/upload");
 
 const protectAdminOrVendeur = (req, res, next) => {
@@ -49,7 +50,7 @@ router.use(protectAdminOrVendeur);
 /**
  * @desc    Upload image produit
  * @route   POST /api/upload/product-image
- * @access  Privé (Admin)
+ * @access  Privé (Admin/Vendeur)
  */
 router.post("/product-image", uploadProductImage, (req, res) => {
   if (!req.file) {
@@ -62,6 +63,26 @@ router.post("/product-image", uploadProductImage, (req, res) => {
   res.status(200).json({
     success: true,
     message: "Image uploadée avec succès.",
+    url: req.file.path, // URL Cloudinary
+  });
+});
+
+/**
+ * @desc    Upload vidéo produit (1 min max, 50MB max)
+ * @route   POST /api/upload/product-video
+ * @access  Privé (Admin/Vendeur)
+ */
+router.post("/product-video", uploadProductVideo, (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "Aucune vidéo fournie.",
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Vidéo uploadée avec succès.",
     url: req.file.path, // URL Cloudinary
   });
 });
