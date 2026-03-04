@@ -23,8 +23,8 @@ exports.vendeurProduitValidation = [
   body("description")
     .optional()
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage("La description ne peut pas dépasser 1000 caractères"),
+    .isLength({ max: 2000 })
+    .withMessage("La description ne peut pas dépasser 2000 caractères"),
 ];
 
 // ─── Controllers ──────────────────────────────────────────────────────────────
