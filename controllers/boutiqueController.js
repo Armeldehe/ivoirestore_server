@@ -91,13 +91,23 @@ exports.getBoutiques = async (req, res, next) => {
 };
 
 /**
- * @desc    Récupérer une boutique par ID
- * @route   GET /api/boutiques/:id
+ * @desc    Récupérer une boutique par ID ou slug
+ * @route   GET /api/boutiques/:idOrSlug
  * @access  Public
  */
 exports.getBoutique = async (req, res, next) => {
   try {
-    const boutique = await Boutique.findById(req.params.id);
+    const param = req.params.id;
+    const mongoose = require("mongoose");
+
+    // Support both ObjectId and slug lookup
+    let boutique;
+    if (mongoose.isValidObjectId(param)) {
+      boutique = await Boutique.findById(param);
+    }
+    if (!boutique) {
+      boutique = await Boutique.findOne({ slug: param.toLowerCase() });
+    }
 
     if (!boutique) {
       return res.status(404).json({
