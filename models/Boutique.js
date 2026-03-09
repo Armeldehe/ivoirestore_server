@@ -55,16 +55,15 @@ const boutiqueSchema = new mongoose.Schema(
 );
 
 // Auto-generate slug from name before save
-boutiqueSchema.pre("save", function (next) {
+boutiqueSchema.pre("save", function () {
   if (this.isModified("name") || !this.slug) {
     this.slug = this.name
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // remove accents
-      .replace(/[^a-z0-9]+/g, "") // remove non-alphanumeric
+      .replace(/[^a-z0-9]+/g, "-") // replace non-alphanumeric with dash
       .replace(/^-+|-+$/g, ""); // trim dashes
   }
-  next();
 });
 
 module.exports = mongoose.model("Boutique", boutiqueSchema);
