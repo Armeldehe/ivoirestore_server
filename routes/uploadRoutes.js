@@ -45,6 +45,26 @@ const protectAdminOrVendeur = (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Upload bannière publique (lors de l'enregistrement)
+ * @route   POST /api/upload/banner-public
+ * @access  Public (pas d'authentification requise)
+ */
+router.post("/banner-public", uploadBoutiqueImage, (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "Aucune image fournie.",
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Bannière uploadée avec succès.",
+    url: req.file.path, // URL Cloudinary
+  });
+});
+
 router.use(protectAdminOrVendeur);
 
 /**

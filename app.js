@@ -10,7 +10,6 @@
  * - mongo-sanitize : Protection injection NoSQL
  * - express-validator : Validation des données
  */
-require("dotenv").config();
 
 const express = require("express");
 const helmet = require("helmet");
